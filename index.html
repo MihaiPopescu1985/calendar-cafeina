@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f3f0e7" />
+  <title>Jurnal de cofeină</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; background: #f3f0e7; }
+    #root { min-height: 100vh; }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const LUNI = [
+      "Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie",
+      "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie",
+    ];
+    const LUNI_SCURT = [
+      "Ian", "Feb", "Mar", "Apr", "Mai", "Iun",
+      "Iul", "Aug", "Sep", "Oct", "Noi", "Dec",
+    ];
+    const ZILE = ["L", "Ma", "Mi", "J", "V", "S", "D"];
+
+    const BAUTURI = {
+      cafea: { nume: "Cafea", greutate: 3, simbol: "\u2615" },
+      negru: { nume: "Ceai negru", greutate: 2, simbol: "\uD83C\uDF75" },
+      verde: { nume: "Ceai verde", greutate: 1, simbol: "\uD83C\uDF3F" },
+    };
+
+    // 10 cafele x greutate 3 = 30 -> saturatia rosului la 30
+    const SCOR_MAX = 30;
+
+    function culoarePentruScor(scor) {
+      if (scor <= 0) return "#dcedc9";
+      const t = Math.min(scor, SCOR_MAX) / SCOR_MAX;
+      const verde = [188, 222, 158];
+      const rosu = [176, 42, 42];
+      const c = verde.map((v, i) => Math.round(v + (rosu[i] - v) * t));
+      return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+    }
+
+    function cheieZi(an, luna, zi) {
+      return `${an}-${luna}-${zi}`;
+    }
+
+    const STORAGE_KEY = "jurnal-cofeina-date";
+
+    function CalendarCofeina() {
+      const azi = new Date();
+      const [an, setAn] = useState(azi.getFullYear());
+      const [luna, setLuna] = useState(azi.getMonth());
+      const [date, setDate] = useState({});
+      const [ziActiva, setZiActiva] = useState(null);
+      const [mod, setMod] = useState("calendar");
+      const [confirmStergere, setConfirmStergere] = useState(false);
+      const [incarcat, setIncarcat] = useState(false);
+
+      // Incarcare la pornire din localStorage
+      useEffect(() => {
+        try {
+          const brut = localStorage.getItem(STORAGE_KEY);
+          if (brut) setDate(JSON.parse(brut));
+        } catch (e) {
+          // date corupte sau inexistente - pornim gol
+        }
+        setIncarcat(true);
+      }, []);
+
+      // Salvare la fiecare modificare
+      useEffect(() => {
+        if (!incarcat) return;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(date));
+        } catch (e) {
+          // storage plin sau blocat
+        }
+      }, [date, incarcat]);
+
+      const prima = new Date(an, luna, 1);
+      const offset = (prima.getDay() + 6) % 7;
+      const nrZile = new Date(an, luna + 1, 0).getDate();
+
+      const celule = useMemo(() => {
+        const arr = [];
+        for (let i = 0; i < offset; i++) arr.push(null);
+        for (let z = 1; z <= nrZile; z++) arr.push(z);
+        return arr;
+      }, [offset, nrZile]);
+
+      function scorZiLuna(a, l, zi) {
+        const d = date[cheieZi(a, l, zi)];
+        if (!d) return 0;
+        return Object.entries(d).reduce(
+          (s, [k, n]) => s + n * BAUTURI[k].greutate, 0
+        );
+      }
+      const scorZi = (zi) => scorZiLuna(an, luna, zi);
+
+      function adauga(zi, tip) {
+        const k = cheieZi(an, luna, zi);
+        setDate((prev) => {
+          const curent = prev[k] || { cafea: 0, negru: 0, verde: 0 };
+          return { ...prev, [k]: { ...curent, [tip]: curent[tip] + 1 } };
+        });
+      }
+
+      function reset(zi) {
+        const k = cheieZi(an, luna, zi);
+        setDate((prev) => {
+          const copie = { ...prev };
+          delete copie[k];
+          return copie;
+        });
+        setConfirmStergere(false);
+        setZiActiva(null);
+      }
+
+      function schimbaLuna(delta) {
+        let l = luna + delta;
+        let a = an;
+        if (l < 0) { l = 11; a--; }
+        if (l > 11) { l = 0; a++; }
+        setLuna(l); setAn(a);
+        setZiActiva(null); setConfirmStergere(false);
+      }
+
+      function selecteazaZi(zi) {
+        setZiActiva(ziActiva === zi ? null : zi);
+        setConfirmStergere(false);
+      }
+
+      const totalLuna = celule.filter(Boolean).reduce((s, z) => s + scorZi(z), 0);
+
+      return (
+        <div style={styles.pagina}>
+          <div style={styles.card}>
+            <header style={styles.header}>
+              <div>
+                <p style={styles.eyebrow}>jurnal de cofeina</p>
+                <h1 style={styles.titlu}>Mai putin, zi cu zi</h1>
+              </div>
+              <div style={styles.scorLuna}>
+                <span style={styles.scorNr}>{totalLuna}</span>
+                <span style={styles.scorEt}>scor luna</span>
+              </div>
+            </header>
+
+            <div style={styles.comutator}>
+              <button
+                style={{ ...styles.comBtn, ...(mod === "calendar" ? styles.comActiv : {}) }}
+                onClick={() => setMod("calendar")}
+              >Calendar</button>
+              <button
+                style={{ ...styles.comBtn, ...(mod === "heatmap" ? styles.comActiv : {}) }}
+                onClick={() => { setMod("heatmap"); setZiActiva(null); }}
+              >Heatmap</button>
+            </div>
+
+            {mod === "calendar" ? (
+              <React.Fragment>
+                <div style={styles.navLuna}>
+                  <button style={styles.navBtn} onClick={() => schimbaLuna(-1)}>{"\u2039"}</button>
+                  <span style={styles.numeLuna}>{LUNI[luna]} {an}</span>
+                  <button style={styles.navBtn} onClick={() => schimbaLuna(1)}>{"\u203A"}</button>
+                </div>
+
+                <div style={styles.gridZile}>
+                  {ZILE.map((z) => <div key={z} style={styles.capZi}>{z}</div>)}
+                </div>
+
+                <div style={styles.grid}>
+                  {celule.map((zi, i) => {
+                    if (!zi) return <div key={`g${i}`} />;
+                    const scor = scorZi(zi);
+                    const activa = ziActiva === zi;
+                    const esteAzi = zi === azi.getDate() && luna === azi.getMonth() && an === azi.getFullYear();
+                    return (
+                      <button
+                        key={zi}
+                        onClick={() => selecteazaZi(zi)}
+                        style={{
+                          ...styles.celula,
+                          background: culoarePentruScor(scor),
+                          color: scor > SCOR_MAX / 2 ? "#fff" : "#3a4a30",
+                          outline: activa ? "2px solid #2a2a2a" : "none",
+                          outlineOffset: activa ? "1px" : "0",
+                          boxShadow: esteAzi ? "inset 0 0 0 2px #2a2a2a" : "none",
+                        }}
+                      >
+                        <span style={styles.numarZi}>{zi}</span>
+                        {scor > 0 && <span style={styles.scorCelula}>{scor}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {ziActiva && (
+                  <div style={styles.panou}>
+                    <p style={styles.panouTitlu}>{ziActiva} {LUNI[luna]}</p>
+                    <div style={styles.optiuni}>
+                      {Object.entries(BAUTURI).map(([tip, b]) => {
+                        const n = (date[cheieZi(an, luna, ziActiva)] || {})[tip] || 0;
+                        return (
+                          <button key={tip} style={styles.optiune} onClick={() => adauga(ziActiva, tip)}>
+                            <span style={styles.optSimbol}>{b.simbol}</span>
+                            <span style={styles.optNume}>{b.nume}</span>
+                            {n > 0 && <span style={styles.optNr}>{n}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {!confirmStergere ? (
+                      <button
+                        style={styles.resetBtn}
+                        onClick={() => setConfirmStergere(true)}
+                        disabled={!date[cheieZi(an, luna, ziActiva)]}
+                      >Sterge ziua</button>
+                    ) : (
+                      <div style={styles.confirmBox}>
+                        <span style={styles.confirmText}>Stergi tot ce ai inregistrat in aceasta zi?</span>
+                        <div style={styles.confirmBtns}>
+                          <button style={styles.confirmNu} onClick={() => setConfirmStergere(false)}>Anuleaza</button>
+                          <button style={styles.confirmDa} onClick={() => reset(ziActiva)}>Sterge</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </React.Fragment>
+            ) : (
+              <Heatmap an={an} setAn={setAn} scorZiLuna={scorZiLuna} azi={azi} />
+            )}
+
+            <Legenda />
+          </div>
+        </div>
+      );
+    }
+
+    function Heatmap({ an, setAn, scorZiLuna, azi }) {
+      return (
+        <React.Fragment>
+          <div style={styles.navLuna}>
+            <button style={styles.navBtn} onClick={() => setAn(an - 1)}>{"\u2039"}</button>
+            <span style={styles.numeLuna}>{an}</span>
+            <button style={styles.navBtn} onClick={() => setAn(an + 1)}>{"\u203A"}</button>
+          </div>
+
+          <div style={styles.heatWrap}>
+            {LUNI.map((_, l) => {
+              const nrZile = new Date(an, l + 1, 0).getDate();
+              return (
+                <div key={l} style={styles.heatLuna}>
+                  <span style={styles.heatLabel}>{LUNI_SCURT[l]}</span>
+                  <div style={styles.heatGrid}>
+                    {Array.from({ length: nrZile }, (_, idx) => {
+                      const zi = idx + 1;
+                      const scor = scorZiLuna(an, l, zi);
+                      const esteAzi = zi === azi.getDate() && l === azi.getMonth() && an === azi.getFullYear();
+                      return (
+                        <div
+                          key={zi}
+                          title={`${zi} ${LUNI[l]} - scor ${scor}`}
+                          style={{
+                            ...styles.heatCelula,
+                            background: culoarePentruScor(scor),
+                            boxShadow: esteAzi ? "inset 0 0 0 1.5px #2a2a2a" : "none",
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </React.Fragment>
+      );
+    }
+
+    function Legenda() {
+      const trepte = [0, 6, 12, 18, 24, 30];
+      return (
+        <div style={styles.legenda}>
+          <span style={styles.legText}>mai putin</span>
+          <div style={styles.legCelule}>
+            {trepte.map((s) => (
+              <div key={s} style={{ ...styles.legCelula, background: culoarePentruScor(s) }} />
+            ))}
+          </div>
+          <span style={styles.legText}>mai mult</span>
+        </div>
+      );
+    }
+
+    const styles = {
+      pagina: { minHeight: "100vh", background: "#f3f0e7", fontFamily: "Georgia, serif", display: "flex", justifyContent: "center", padding: "24px 16px", boxSizing: "border-box" },
+      card: { width: "100%", maxWidth: 460, background: "#fbfaf5", borderRadius: 20, padding: 24, boxShadow: "0 6px 30px rgba(0,0,0,0.07)" },
+      header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 },
+      eyebrow: { margin: 0, fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "#9aa088", fontFamily: "system-ui, sans-serif" },
+      titlu: { margin: "4px 0 0", fontSize: 26, color: "#2a3320", fontWeight: 400 },
+      scorLuna: { textAlign: "right" },
+      scorNr: { display: "block", fontSize: 30, color: "#b02a2a", fontWeight: 700 },
+      scorEt: { fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9aa088", fontFamily: "system-ui, sans-serif" },
+      comutator: { display: "flex", gap: 4, background: "#ece8db", borderRadius: 12, padding: 4, marginBottom: 16 },
+      comBtn: { flex: 1, border: "none", background: "transparent", padding: "8px 0", borderRadius: 9, cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#7a7a68", fontFamily: "system-ui, sans-serif" },
+      comActiv: { background: "#fbfaf5", color: "#2a3320", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" },
+      navLuna: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+      navBtn: { border: "none", background: "#ece8db", width: 34, height: 34, borderRadius: 10, fontSize: 20, cursor: "pointer", color: "#5a5a4a" },
+      numeLuna: { fontSize: 17, color: "#3a4a30", fontFamily: "system-ui, sans-serif", fontWeight: 600 },
+      gridZile: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 6 },
+      capZi: { textAlign: "center", fontSize: 11, color: "#9aa088", fontFamily: "system-ui, sans-serif", fontWeight: 600 },
+      grid: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 },
+      celula: { aspectRatio: "1", border: "none", borderRadius: 12, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", transition: "background 0.25s, outline 0.1s", position: "relative", padding: 0 },
+      numarZi: { fontSize: 15, fontWeight: 600 },
+      scorCelula: { fontSize: 10, opacity: 0.75, marginTop: 1 },
+      panou: { marginTop: 20, paddingTop: 18, borderTop: "1px solid #ece8db" },
+      panouTitlu: { margin: "0 0 12px", fontSize: 15, color: "#3a4a30", fontFamily: "system-ui, sans-serif", fontWeight: 600 },
+      optiuni: { display: "flex", gap: 8, marginBottom: 12 },
+      optiune: { flex: 1, border: "1px solid #e4e0d2", background: "#fff", borderRadius: 12, padding: "12px 4px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontFamily: "system-ui, sans-serif", position: "relative" },
+      optSimbol: { fontSize: 22 },
+      optNume: { fontSize: 12, color: "#5a5a4a" },
+      optNr: { position: "absolute", top: 6, right: 8, fontSize: 12, fontWeight: 700, color: "#b02a2a" },
+      resetBtn: { border: "none", background: "transparent", color: "#a09a88", fontSize: 12, cursor: "pointer", fontFamily: "system-ui, sans-serif", textDecoration: "underline", padding: 0 },
+      confirmBox: { background: "#fdf3f0", border: "1px solid #f0d5cd", borderRadius: 12, padding: 12 },
+      confirmText: { display: "block", fontSize: 13, color: "#8a3322", fontFamily: "system-ui, sans-serif", marginBottom: 10 },
+      confirmBtns: { display: "flex", gap: 8 },
+      confirmNu: { flex: 1, border: "1px solid #e4e0d2", background: "#fff", borderRadius: 9, padding: "8px 0", cursor: "pointer", fontSize: 13, color: "#5a5a4a", fontFamily: "system-ui, sans-serif" },
+      confirmDa: { flex: 1, border: "none", background: "#b02a2a", color: "#fff", borderRadius: 9, padding: "8px 0", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "system-ui, sans-serif" },
+      heatWrap: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 4 },
+      heatLuna: { display: "flex", flexDirection: "column", gap: 5 },
+      heatLabel: { fontSize: 10, color: "#9aa088", textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: "system-ui, sans-serif", fontWeight: 600 },
+      heatGrid: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 },
+      heatCelula: { aspectRatio: "1", borderRadius: 2 },
+      legenda: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 18, paddingTop: 16, borderTop: "1px solid #ece8db" },
+      legText: { fontSize: 10, color: "#9aa088", textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: "system-ui, sans-serif" },
+      legCelule: { display: "flex", gap: 3 },
+      legCelula: { width: 16, height: 16, borderRadius: 3 },
+    };
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<CalendarCofeina />);
+
+    // Inregistrare service worker pentru offline
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
