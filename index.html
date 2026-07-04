@@ -36,6 +36,7 @@
       cafea: { nume: "Cafea", greutate: 3, simbol: "\u2615" },
       negru: { nume: "Ceai negru", greutate: 2, simbol: "\uD83C\uDF75" },
       verde: { nume: "Ceai verde", greutate: 1, simbol: "\uD83C\uDF3F" },
+      cola: { nume: "Cola", greutate: 1, simbol: "\uD83E\uDD64" },
     };
 
     // 10 cafele x greutate 3 = 30 -> saturatia rosului la 30
@@ -328,11 +329,11 @@
       scorCelula: { fontSize: 10, opacity: 0.75, marginTop: 1 },
       panou: { marginTop: 20, paddingTop: 18, borderTop: "1px solid #ece8db" },
       panouTitlu: { margin: "0 0 12px", fontSize: 15, color: "#3a4a30", fontFamily: "system-ui, sans-serif", fontWeight: 600 },
-      optiuni: { display: "flex", gap: 8, marginBottom: 12 },
-      optiune: { flex: 1, border: "1px solid #e4e0d2", background: "#fff", borderRadius: 12, padding: "12px 4px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontFamily: "system-ui, sans-serif", position: "relative" },
+      optiuni: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 },
+      optiune: { border: "1px solid #e4e0d2", background: "#fff", borderRadius: 12, padding: "12px 4px", cursor: "pointer", display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "system-ui, sans-serif", position: "relative" },
       optSimbol: { fontSize: 22 },
-      optNume: { fontSize: 12, color: "#5a5a4a" },
-      optNr: { position: "absolute", top: 6, right: 8, fontSize: 12, fontWeight: 700, color: "#b02a2a" },
+      optNume: { fontSize: 13, color: "#5a5a4a" },
+      optNr: { fontSize: 13, fontWeight: 700, color: "#b02a2a", minWidth: 14, textAlign: "center" },
       resetBtn: { border: "none", background: "transparent", color: "#a09a88", fontSize: 12, cursor: "pointer", fontFamily: "system-ui, sans-serif", textDecoration: "underline", padding: 0 },
       confirmBox: { background: "#fdf3f0", border: "1px solid #f0d5cd", borderRadius: 12, padding: 12 },
       confirmText: { display: "block", fontSize: 13, color: "#8a3322", fontFamily: "system-ui, sans-serif", marginBottom: 10 },
